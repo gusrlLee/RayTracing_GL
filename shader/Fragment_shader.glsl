@@ -1,7 +1,60 @@
 #version 330 core
 out vec4 FragColor;
 
-uniform float t;
+uniform uint frame;
+
+#define UINT_MAX 0xFFFFFFFFu
+#define FLT_MAX 3.402823466e+38F
+#define RAND_MAX UINT_MAX
+
+uint seed;
+
+uint hash(uint seed) {
+    seed = (seed ^ 61u) ^ (seed >> 16u);
+    seed *= 9u;
+    seed = seed ^ (seed >> 4u);
+    seed *= 0x27D4EB2Du;
+    seed = seed ^ (seed >> 15u);
+    return seed;
+}
+
+void randomInit() {
+    seed = hash(hash(uint(gl_FragCoord.x) + hash(uint(gl_FragCoord.y))) + frame);
+}
+
+uint randomUint() {
+    seed = hash(seed);
+    return seed;
+}
+
+float randomFloat() {
+    return float(randomUint()) / float(RAND_MAX);
+}
+
+float randomFloat(float min, float max) {
+    return min + (max - min) * randomFloat();
+}
+
+vec3 randomUnitSphere() {
+    while (true) {
+        vec3 p = vec3(randomFloat(-1.0, 1.0), randomFloat(-1.0, 1.0), randomFloat(-1.0, 1.0));
+        if (dot(p, p) < 1.0)
+            return p;
+    }
+}
+
+vec3 randomUnitVector() {
+    vec3 p = randomUnitSphere();
+    return normalize(p);
+}
+
+vec3 randomHemisphere(const vec3 normal) {
+    vec3 in_unit_sphere = randomUnitSphere();
+    if (dot(in_unit_sphere, normal) > 0.0) // In the same hemisphere as the normal
+        return in_unit_sphere;
+    else
+        return -in_unit_sphere;
+}
 
 struct Sphere {
     int texture;
@@ -36,7 +89,14 @@ struct World {
 float screen_width = 1280;
 float aspect_ratio = 16.0 / 9.0;
 float screen_height = screen_width / aspect_ratio;
-const int sample_per_pixel = 100;
+const int sample_per_pixel = 10;
+
+float clamp(float x, float min, float max) {
+    if (x < min) return min;
+    if (x > max) return max;
+    return x;
+}
+
 
 bool hit(Ray ray, Sphere sphere, float t_min, float t_max, out hit_record rec) {
     vec3 oc = ray.origin - sphere.center;
@@ -67,50 +127,50 @@ bool hit(Ray ray, Sphere sphere, float t_min, float t_max, out hit_record rec) {
 vec3 rayColor(Ray ray, Sphere sphereOfWorld[100], int sphere_counter, int depth) {
     bool hit_result = false;
     hit_record rec;
+    Ray r = ray;
 
-    if (depth <= 0) 
-        return vec3(0.0);
+    vec3 color = vec3(1.0);
+    float temp = 1.0;
 
-    for (int i=0; i<sphere_counter; i++) {
-        if (hit_result) {
-            return 0.5 * (rec.normal + vec3(1,1,1));
+    for (int d=0; d<depth; d++) {
+        for (int i=0; i<sphere_counter; i++) {
+            if (hit_result) {
+                break;
+            }
+
+            hit_result = hit(r, sphereOfWorld[i], 0.00001, 9999999, rec);
         }
 
-        hit_result = hit(ray, sphereOfWorld[i], 0, 9999999, rec);
-    }
+        if (hit_result) {
+            temp *= 0.5;
+            vec3 target = rec.p + rec.normal + randomHemisphere(rec.normal);
+            r = Ray(rec.p, target - rec.p);
+        }
 
-    if (hit_result) {
-        return 0.5 * (rec.normal + vec3(1,1,1));
+        else {
+            float size = dot(r.direction, r.direction);
+            vec3 unit_direction = r.direction / size; 
+            float t = 0.5 * (unit_direction.y + 1.0);
+            color = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
+            return temp * color;
+        }
+        hit_result = false;
     }
-    else {
-        float size = dot(ray.direction, ray.direction);
-        vec3 unit_direction = ray.direction / size; 
-        float t = 0.5 * (unit_direction.y + 1.0);
-        vec3 color = (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
-        return color;
-    }
+    // return temp * color;
 }
 
 Ray getRay(Camera camera, float u, float v) {
     return Ray(camera.origin, vec3(camera.lower_left_corner.x + u*camera.horizontal.x, camera.lower_left_corner.y + v*camera.vertical.y, camera.lower_left_corner.z) - camera.origin);
 }
 
-float rand (float t) {
-    return fract(sin(t)*1.0);
-}
-
-
-float clamp(float x, float min, float max) {
-    if (x < min) return min;
-    if (x > max) return max;
-    return x;
-}
 
 void main()
 {
     vec3 origin = vec3(0.0, 0.0, 0.0);
 
     vec2 st = vec2(gl_FragCoord.x / (screen_width-1), gl_FragCoord.y / (screen_height-1)); 
+    randomInit();
+
     // for camera 
     float focal_length = 1.0;
     float viewport_height = 2.0;
@@ -132,20 +192,14 @@ void main()
     sphereOfWorld[1] = Sphere(0, vec3(0, -100.5, -1), 100); sphere_counter++;
 
     int max_depth = 50;
-
-    vec4 color = vec4(0.0);
+    vec3 color = vec3(0.0);
     for (int i=0; i<sample_per_pixel; i++) {
-        float x = (gl_FragCoord.x - (screen_width/2) + rand(t)) / (screen_width - 1);
-        float y = (gl_FragCoord.y - (screen_height/2) + rand(t)) / (screen_height - 1);
+        float x = (gl_FragCoord.x - (screen_width/2) + randomFloat()) / (screen_width - 1);
+        float y = (gl_FragCoord.y - (screen_height/2) + randomFloat()) / (screen_height - 1);
         Ray ray = getRay(camera, x, y);
-        color += vec4(rayColor(ray, sphereOfWorld, sphere_counter, max_depth), 0.0);  
-        // FragColor = vec4(rayColor(ray, sphereOfWorld, sphere_counter), 1.0);
+        color += rayColor(ray, sphereOfWorld, sphere_counter, max_depth);  
     }
     // determine color 
-    color.x = clamp(color.x / sample_per_pixel, 0, 0.999);
-    color.y = clamp(color.y / sample_per_pixel, 0, 0.999);
-    color.z = clamp(color.z / sample_per_pixel, 0, 0.999);
-    color.w = 1.0;
 
-    FragColor = color;
+    FragColor = vec4(sqrt(color / float(sample_per_pixel)), 1.0);
 }
