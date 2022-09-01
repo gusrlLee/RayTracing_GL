@@ -10,7 +10,7 @@ uniform uint frame;
 float screen_width = 1280;
 float aspect_ratio = 16.0 / 9.0;
 float screen_height = screen_width / aspect_ratio;
-const int sample_per_pixel = 100;
+const int sample_per_pixel = 50;
 uint seed;
 
 // RANDOM ----------------------------------------------------------------------------------------
@@ -247,10 +247,10 @@ void main()
 
     Sphere sphereOfWorld[100];
     int sphere_counter = 0;
-    sphereOfWorld[0] = Sphere(0, vec3(0.8, 0.8, 0.0), vec3(0, 0, -1), 0.5); sphere_counter++;
+    sphereOfWorld[0] = Sphere(0, vec3(0.7, 0.3, 0.3), vec3(0, 0, -1), 0.5); sphere_counter++;
     sphereOfWorld[1] = Sphere(1, vec3(0.8, 0.8, 0.8), vec3(1, 0, -1), 0.5); sphere_counter++;
     sphereOfWorld[2] = Sphere(1, vec3(0.8, 0.6, 0.2), vec3(-1, 0, -1), 0.5); sphere_counter++;
-    sphereOfWorld[3] = Sphere(0, vec3(0.7, 0.3, 0.3), vec3(0, -100.5, -1), 100); sphere_counter++;
+    sphereOfWorld[3] = Sphere(0, vec3(0.8, 0.8, 0.0), vec3(0, -100.5, -1), 100); sphere_counter++;
 
     int max_depth = 50;
     vec3 color = vec3(0.0);
