@@ -25,7 +25,7 @@ unsigned int VBO, VAO, EBO;
 
 
 // camera
-glm::vec3 cameraPos   = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 cameraPos   = glm::vec3(0.0f, 0.0f, 1.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -50,7 +50,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "myRay", NULL, NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
